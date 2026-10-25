@@ -1,0 +1,21 @@
+
+# Go build outputs
+/bin/
+/build/
+*.exe
+*.test
+*.out
+
+# Go workspace and coverage files
+go.work
+coverage.out
+
+# IDE and editor settings
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+# Personal checklist
+TODO.md
