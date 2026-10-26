@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -93,5 +94,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	printConfig(config)
+	metadata, err := fetchPackageMetadata(config.Repository, config.Package)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
+
+	dependencies, err := extractDirectDependencies(metadata)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Direct dependencies of %s:\n", config.Package)
+
+	if len(dependencies) == 0 {
+		fmt.Println("No direct dependencies.")
+		return
+	}
+
+	names := make([]string, 0, len(dependencies))
+	for name := range dependencies {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+
+	for _, name := range names {
+		fmt.Printf("- %s: %s\n", name, dependencies[name])
+	}
 }
