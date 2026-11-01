@@ -135,3 +135,53 @@ func printDependencyTree(root string, graph map[string][]string) {
 
 	printBranch(root, "")
 }
+
+func buildInstallationOrder(graph map[string][]string) ([]string, error) {
+	var order []string
+
+	visited := make(map[string]bool)
+	visiting := make(map[string]bool)
+
+	type Frame struct {
+		PackageName string
+		NextChild   int
+	}
+
+	for root := range graph {
+		if visited[root] {
+			continue
+		}
+
+		stack := []Frame{{PackageName: root}}
+		visiting[root] = true
+
+		for len(stack) > 0 {
+			top := &stack[len(stack)-1]
+			dependencies := graph[top.PackageName]
+
+			if top.NextChild < len(dependencies) {
+				dependency := dependencies[top.NextChild]
+				top.NextChild++
+
+				if visiting[dependency] {
+					return nil, fmt.Errorf("cycle detected involving package %s", dependency)
+				}
+				if visited[dependency] {
+					continue
+				}
+
+				visiting[dependency] = true
+				stack = append(stack, Frame{PackageName: dependency})
+				continue
+			}
+
+			order = append(order, top.PackageName)
+			visited[top.PackageName] = true
+			delete(visiting, top.PackageName)
+
+			stack = stack[:len(stack)-1]
+		}
+	}
+
+	return order, nil
+}

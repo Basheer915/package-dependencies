@@ -177,6 +177,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
+
 	fmt.Printf("Dependency tree of %s:\n", config.Package)
 	printDependencyTree(config.Package, graph)
 
@@ -186,5 +187,19 @@ func main() {
 		for _, cycle := range cycles {
 			fmt.Println(cycle)
 		}
+
+		fmt.Println("\nCannot determine installation order because cycles exist.")
+		return
+	}
+	installationOrder, err := buildInstallationOrder(graph)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
+	fmt.Println("\nInstallation order:")
+
+	for i, packageName := range installationOrder {
+		fmt.Printf("%d. %s\n", i+1, packageName)
 	}
 }
