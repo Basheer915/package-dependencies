@@ -20,18 +20,43 @@ type Config struct {
 func parseConfig() Config {
 	config := Config{}
 
-	flag.StringVar(&config.Package, "package", "",
-		"Name of the npm package to analyze")
-	flag.StringVar(&config.Repository, "repository", "",
-		"Repository URL or test repository file path")
-	flag.BoolVar(&config.TestMode, "test-mode", false,
-		"Use a test repository file")
-	flag.BoolVar(&config.ASCIITree, "ascii-tree", false,
-		"Output dependencies as an ASCII tree")
-	flag.IntVar(&config.MaxDepth, "max-depth", 3,
-		"Maximum dependency analysis depth")
+	flag.StringVar(
+		&config.Package,
+		"package",
+		"",
+		"Name of the npm package to analyze",
+	)
+
+	flag.StringVar(
+		&config.Repository,
+		"repository",
+		"",
+		"Repository URL or test repository file path",
+	)
+
+	flag.BoolVar(
+		&config.TestMode,
+		"test-mode",
+		false,
+		"Use a test repository file",
+	)
+
+	flag.BoolVar(
+		&config.ASCIITree,
+		"ascii-tree",
+		false,
+		"Output dependencies as an ASCII tree",
+	)
+
+	flag.IntVar(
+		&config.MaxDepth,
+		"max-depth",
+		3,
+		"Maximum dependency analysis depth",
+	)
 
 	flag.Parse()
+
 	return config
 }
 
@@ -57,6 +82,7 @@ func validateConfig(config Config) error {
 
 func validateTestRepository(path string) error {
 	info, err := os.Stat(path)
+
 	if err != nil {
 		return fmt.Errorf("invalid test repository file: %w", err)
 	}
@@ -70,20 +96,16 @@ func validateTestRepository(path string) error {
 
 func validateRepositoryURL(value string) error {
 	parsed, err := url.ParseRequestURI(value)
-	if err != nil || parsed.Host == "" ||
+
+	if err != nil ||
+		parsed.Host == "" ||
 		(parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return fmt.Errorf("--repository must be a valid HTTP or HTTPS URL")
+		return fmt.Errorf(
+			"--repository must be a valid HTTP or HTTPS URL",
+		)
 	}
 
 	return nil
-}
-
-func printConfig(config Config) {
-	fmt.Printf("package=%s\n", config.Package)
-	fmt.Printf("repository=%s\n", config.Repository)
-	fmt.Printf("test-mode=%t\n", config.TestMode)
-	fmt.Printf("ascii-tree=%t\n", config.ASCIITree)
-	fmt.Printf("max-depth=%d\n", config.MaxDepth)
 }
 
 func main() {
@@ -94,33 +116,75 @@ func main() {
 		os.Exit(1)
 	}
 
-	metadata, err := fetchPackageMetadata(config.Repository, config.Package)
+	var getDependencies func(string) ([]string, error)
+
+	if config.TestMode {
+		repository, err := loadTestRepository(config.Repository)
+
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+
+		if _, exists := repository[config.Package]; !exists {
+			fmt.Fprintln(
+				os.Stderr,
+				"Error: root package not found in test repository",
+			)
+			os.Exit(1)
+		}
+
+		getDependencies = func(packageName string) ([]string, error) {
+			return repository[packageName], nil
+		}
+
+	} else {
+		getDependencies = func(packageName string) ([]string, error) {
+			metadata, err := fetchPackageMetadata(
+				config.Repository,
+				packageName,
+			)
+
+			if err != nil {
+				return nil, err
+			}
+
+			dependencies, err := extractDirectDependencies(metadata)
+
+			if err != nil {
+				return nil, err
+			}
+
+			names := make([]string, 0, len(dependencies))
+
+			for name := range dependencies {
+				names = append(names, name)
+			}
+
+			sort.Strings(names)
+
+			return names, nil
+		}
+	}
+
+	graph, cycles, err := buildDependencyGraph(
+		config.Package,
+		config.MaxDepth,
+		getDependencies,
+	)
+
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Dependency tree of %s:\n", config.Package)
+	printDependencyTree(config.Package, graph)
 
-	dependencies, err := extractDirectDependencies(metadata)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
-		os.Exit(1)
-	}
+	if len(cycles) > 0 {
+		fmt.Println("\nDetected cycles:")
 
-	fmt.Printf("Direct dependencies of %s:\n", config.Package)
-
-	if len(dependencies) == 0 {
-		fmt.Println("No direct dependencies.")
-		return
-	}
-
-	names := make([]string, 0, len(dependencies))
-	for name := range dependencies {
-		names = append(names, name)
-	}
-
-	sort.Strings(names)
-
-	for _, name := range names {
-		fmt.Printf("- %s: %s\n", name, dependencies[name])
+		for _, cycle := range cycles {
+			fmt.Println(cycle)
+		}
 	}
 }
