@@ -19,3 +19,6 @@ coverage.out
 Thumbs.db
 # Personal checklist
 TODO.md
+# Generated dependency graph files
+dependency-graph.d2
+dependency-graph.svg

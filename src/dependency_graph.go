@@ -1,6 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"sort"
+	"strings"
+)
 
 type StackFrame struct {
 	PackageName  string
@@ -136,52 +142,43 @@ func printDependencyTree(root string, graph map[string][]string) {
 	printBranch(root, "")
 }
 
-func buildInstallationOrder(graph map[string][]string) ([]string, error) {
-	var order []string
+func generateD2Graph(graph map[string][]string) string {
+	var builder strings.Builder
 
-	visited := make(map[string]bool)
-	visiting := make(map[string]bool)
+	packageNames := make([]string, 0, len(graph))
 
-	type Frame struct {
-		PackageName string
-		NextChild   int
+	for packageName := range graph {
+		packageNames = append(packageNames, packageName)
 	}
 
-	for root := range graph {
-		if visited[root] {
-			continue
-		}
+	sort.Strings(packageNames)
 
-		stack := []Frame{{PackageName: root}}
-		visiting[root] = true
+	for _, packageName := range packageNames {
+		dependencies := graph[packageName]
 
-		for len(stack) > 0 {
-			top := &stack[len(stack)-1]
-			dependencies := graph[top.PackageName]
+		sort.Strings(dependencies)
 
-			if top.NextChild < len(dependencies) {
-				dependency := dependencies[top.NextChild]
-				top.NextChild++
-
-				if visiting[dependency] {
-					return nil, fmt.Errorf("cycle detected involving package %s", dependency)
-				}
-				if visited[dependency] {
-					continue
-				}
-
-				visiting[dependency] = true
-				stack = append(stack, Frame{PackageName: dependency})
-				continue
-			}
-
-			order = append(order, top.PackageName)
-			visited[top.PackageName] = true
-			delete(visiting, top.PackageName)
-
-			stack = stack[:len(stack)-1]
+		for _, dependency := range dependencies {
+			builder.WriteString(packageName)
+			builder.WriteString(" -> ")
+			builder.WriteString(dependency)
+			builder.WriteString("\n")
 		}
 	}
 
-	return order, nil
+	return builder.String()
+}
+
+func saveD2Graph(content string, outputPath string) error {
+	return os.WriteFile(outputPath, []byte(content), 0644)
+}
+func renderD2Graph(inputPath string, outputPath string) error {
+	cmd := exec.Command("d2", inputPath, outputPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to render D2 graph: %w\n%s", err, output)
+	}
+
+	return nil
 }

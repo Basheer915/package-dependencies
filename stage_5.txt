@@ -1,0 +1,217 @@
+PACKAGE DEPENDENCIES — TEST COMMANDS
+Variant 1 | Go | npm registry
+================================
+
+IMPORTANT
+---------
+Run commands from the project root: package-dependencies/
+Use Git Bash in VS Code, or another terminal where Go and Git are available.
+The commands below use the repository's current project layout.
+
+1. CHECK PROJECT AND ENVIRONMENT
+--------------------------------
+pwd
+go version
+git status
+git branch --show-current
+git log -5 --oneline
+
+Run all Go tests:
+go test ./... -v
+
+Run the application help (if supported by the CLI):
+go run ./src --help
+
+
+2. STAGE 1 — CLI CONFIGURATION
+------------------------------
+Commit:
+b859b9b feat(config): добавлена конфигурация командной строки
+
+Switch to this stage:
+git checkout b859b9b
+
+Check CLI arguments and displayed configuration:
+go run ./src --package A --repository ./tests/normal.json --test-mode
+
+Check ASCII-tree option:
+go run ./src --package A --repository ./tests/normal.json --test-mode --ascii-tree
+
+Check maximum depth option:
+go run ./src --package A --repository ./tests/normal.json --test-mode --max-depth 2
+
+Return to latest stage:
+git switch master
+
+
+3. STAGE 2 — GETTING DIRECT NPM DEPENDENCIES
+--------------------------------------------
+Commit:
+87fc2cd feat(dependencies): добавлено получение прямых зависимостей npm
+
+Switch to this stage:
+git checkout 87fc2cd
+
+Test a real npm package (requires internet):
+go run ./src --package debug --repository https://registry.npmjs.org/
+
+Another real package:
+go run ./src --package axios --repository https://registry.npmjs.org/
+
+Return to latest stage:
+git switch master
+
+
+4. STAGE 3 — DEPENDENCY GRAPH / DFS
+----------------------------------
+Commit:
+e1abf29 feat: реализован обход графа зависимостей
+
+Switch to this stage:
+git checkout e1abf29
+
+Normal graph:
+go run ./src --package A --repository ./tests/normal.json --test-mode
+
+Shared dependencies:
+go run ./src --package A --repository ./tests/shared_dependency.json --test-mode
+
+Cycle detection:
+go run ./src --package A --repository ./tests/cycle.json --test-mode
+
+Maximum depth = 2:
+go run ./src --package A --repository ./tests/max_depth.json --test-mode --max-depth 2
+
+Empty dependencies:
+go run ./src --package A --repository ./tests/empty_dependencies.json --test-mode
+
+Undefined dependency (expected error):
+go run ./src --package A --repository ./tests/undefined_dependency.json --test-mode
+
+Invalid lowercase package name (expected error):
+go run ./src --package A --repository ./tests/invalid_name.json --test-mode
+
+Maximum depth = 0:
+go run ./src --package A --repository ./tests/max_depth.json --test-mode --max-depth 0
+
+Root package does not exist (expected error):
+go run ./src --package Z --repository ./tests/normal.json --test-mode
+
+Return to latest stage:
+git switch master
+
+
+5. STAGE 4 — INSTALLATION ORDER
+-------------------------------
+Commit:
+5e98366 feat: Добавлен порядок загрузки зависимостей
+
+Switch to this stage:
+git checkout 5e98366
+
+Check graph and installation order:
+go run ./src --package A --repository ./tests/normal.json --test-mode
+
+Check shared dependencies (a shared package must appear once in installation order):
+go run ./src --package A --repository ./tests/shared_dependency.json --test-mode
+
+Compare with npm for debug:
+go run ./src --package debug --repository https://registry.npmjs.org/ --max-depth 10
+
+In a separate temporary directory, compare with npm itself:
+mkdir -p /tmp/npm-debug-test
+cd /tmp/npm-debug-test
+npm init -y
+npm install debug@4.4.3
+npm ls --all
+
+Return to the project directory before switching stages:
+cd ~/package-dependencies
+git switch master
+
+
+6. STAGE 5 — D2 / SVG / ASCII VISUALIZATION
+-------------------------------------------
+Commit:
+c078d52 feat: Добавлена визуализация графа зависимостей
+
+Switch to this stage:
+git checkout c078d52
+
+Check D2 installation:
+d2 --version
+
+Run visualization with the ASCII tree enabled:
+go run ./src --package A --repository ./tests/normal.json --test-mode --ascii-tree
+
+Check generated files:
+ls -l dependency-graph.d2 dependency-graph.svg
+
+Open the SVG on Windows:
+start dependency-graph.svg
+
+Run without ASCII tree:
+go run ./src --package A --repository ./tests/normal.json --test-mode
+
+Run with a maximum depth:
+go run ./src --package A --repository ./tests/normal.json --test-mode --max-depth 2
+
+Run with the additional full test repository, if it has been copied into tests/:
+go run ./src --package A --repository ./tests/full_test.json --test-mode --ascii-tree
+
+Run visualization for real npm packages (requires internet and D2):
+go run ./src --package debug --repository https://registry.npmjs.org/
+go run ./src --package express --repository https://registry.npmjs.org/
+go run ./src --package axios --repository https://registry.npmjs.org/
+
+Open the generated SVG after each run:
+start dependency-graph.svg
+
+IMPORTANT:
+Generated dependency-graph.d2 and dependency-graph.svg files are ignored by Git
+through .gitignore. They should not appear as untracked files.
+
+
+7. GO AUTOMATED TESTS
+---------------------
+The Go test file is:
+src/stage5_test.go
+
+Run all tests in all packages:
+go test ./... -v
+
+Run tests only in src:
+go test ./src -v
+
+Run tests without verbose output:
+go test ./...
+
+Run tests with race detection:
+go test -race ./...
+
+A successful test run ends with PASS and an "ok" result.
+If a test fails, read the failure message; do not assume the implementation is correct.
+
+
+8. FINISH — RETURN TO MASTER AND CHECK REPOSITORY
+------------------------------------------------
+git switch master
+git status
+git log -5 --oneline
+
+Expected:
+- Current branch is master.
+- Branch is up to date with origin/master.
+- Working tree is clean ("nothing to commit, working tree clean").
+
+Useful Git commands:
+git branch --show-current
+git status
+git log --oneline --all --decorate
+git checkout COMMIT_HASH
+git switch master
+
+NOTE ABOUT DETACHED HEAD:
+Checking out a commit by its hash puts Git in detached HEAD state. This is normal
+when demonstrating an individual stage. Return to master with:
+git switch master

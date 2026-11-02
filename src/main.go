@@ -178,8 +178,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Dependency tree of %s:\n", config.Package)
-	printDependencyTree(config.Package, graph)
+	d2Content := generateD2Graph(graph)
+
+	fmt.Println("\nD2 graph:")
+	fmt.Println(d2Content)
+
+	if err := saveD2Graph(d2Content, "dependency-graph.d2"); err != nil {
+		fmt.Printf("Error saving D2 graph: %v\n", err)
+		return
+	}
+	if err := renderD2Graph("dependency-graph.d2", "dependency-graph.svg"); err != nil {
+		fmt.Printf("Error rendering D2 graph: %v\n", err)
+		return
+	}
+
+	fmt.Println("D2 diagram generated: dependency-graph.svg")
+
+	if config.ASCIITree {
+		fmt.Printf("\nDependency tree of %s:\n", config.Package)
+		printDependencyTree(config.Package, graph)
+	}
 
 	if len(cycles) > 0 {
 		fmt.Println("\nDetected cycles:")
@@ -187,19 +205,6 @@ func main() {
 		for _, cycle := range cycles {
 			fmt.Println(cycle)
 		}
-
-		fmt.Println("\nCannot determine installation order because cycles exist.")
 		return
-	}
-	installationOrder, err := buildInstallationOrder(graph)
-
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
-		os.Exit(1)
-	}
-	fmt.Println("\nInstallation order:")
-
-	for i, packageName := range installationOrder {
-		fmt.Printf("%d. %s\n", i+1, packageName)
 	}
 }
